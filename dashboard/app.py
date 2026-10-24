@@ -52,12 +52,17 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   letter-spacing: -.01em; font-style: italic; }}
 .brand i {{ width: 18px; height: 18px; border-radius: 50%; background: {ACCENT};
   display: inline-block; }}
-[data-baseweb="tab-list"] {{ gap: 28px; border-bottom: 1px solid {LINE}; }}
-[data-baseweb="tab"] {{ padding: 10px 0; background: none; }}
-[data-baseweb="tab"] p {{ font-size: 13px; font-weight: 500; color: {MUTED}; }}
-[data-baseweb="tab"][aria-selected="true"] p {{ color: {INK}; font-weight: 600; }}
-[data-baseweb="tab-highlight"] {{ background: {ACCENT}; height: 2px; }}
-[data-baseweb="tab-border"] {{ display: none; }}
+[data-testid="stElementContainer"]:has(.nav) {{
+  position: sticky; top: 0; z-index: 20; background: #fff; }}
+.nav {{ display: flex; gap: 28px; border-bottom: 1px solid {LINE}; overflow-x: auto;
+  scrollbar-width: none; padding-top: 4px; }}
+.nav a {{ padding: 10px 0; font-size: 13px; font-weight: 500; color: {MUTED};
+  text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; }}
+.nav a:hover {{ color: {INK}; border-bottom-color: {ACCENT}; }}
+[data-testid="stMain"], [data-testid="stAppViewContainer"] {{ scroll-behavior: smooth; }}
+.anchor {{ scroll-margin-top: 64px; }}
+.anchor.next {{ border-top: 1px solid {LINE}; margin-top: 56px; padding-top: 22px; }}
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div {{
   border-radius: 999px; font-size: 13px; min-height: 34px; background: #fff;
 }}
@@ -198,6 +203,13 @@ def ring(score: int, color: str) -> str:
             f'<span>{score}</span></div>')
 
 
+def section_head(key: str, title: str, sub: str) -> None:
+    """Section title with an anchor the sticky nav jumps to."""
+    cls = "anchor" if key == "summary" else "anchor next"
+    st.html(f'<div id="{key}" class="{cls}"><div class="page-title">{esc(title)}</div>'
+            f'<div class="page-sub">{esc(sub)}</div></div>')
+
+
 def styled(chart: alt.Chart) -> alt.Chart:
     return (
         chart.configure_view(strokeWidth=0)
@@ -252,8 +264,13 @@ if days:
 else:
     daily, prior, vs = all_daily, None, ""
 
-tab_summary, tab_walking, tab_longest, tab_weather, tab_pipeline = st.tabs(
-    ["Summary", "Walking", "Longest walks", "Weather", "Pipeline health"]
+SECTIONS = {"summary": "Summary", "walking": "Walking", "longest": "Longest walks",
+            "weather": "Weather", "pipeline": "Pipeline health"}
+st.html('<nav class="nav" aria-label="Sections">'
+        + "".join(f'<a href="#{k}">{v}</a>' for k, v in SECTIONS.items()) + "</nav>")
+# One scrolling page: each section is a container, and the nav above jumps between them.
+tab_summary, tab_walking, tab_longest, tab_weather, tab_pipeline = (
+    st.container() for _ in SECTIONS
 )
 
 dq = query(
@@ -275,8 +292,7 @@ best = daily.loc[daily.longest_walk_mi.idxmax()] if len(daily) else None
 
 # ---- summary ------------------------------------------------------------------------------
 with tab_summary:
-    st.html('<div class="page-title">Summary</div>'
-            '<div class="page-sub">The whole picture, in plain English</div>')
+    section_head("summary", "Summary", "The whole picture, in plain English")
 
     wet = daily.condition.isin(["rain", "snow"])
     dry_share = (daily[~wet & daily.condition.notna()].walks > 0).mean()
@@ -334,8 +350,7 @@ with tab_summary:
 
 # ---- walking ------------------------------------------------------------------------------
 with tab_walking:
-    st.html('<div class="page-title">Walking</div>'
-            '<div class="page-sub">Distance, time and steps, day by day</div>')
+    section_head("walking", "Walking", "Distance, time and steps, day by day")
     hours = daily.walk_minutes.sum() / 60
     walk_days = daily[daily.walks > 0]
     st.html(
@@ -379,8 +394,7 @@ with tab_walking:
 
 # ---- longest walks ------------------------------------------------------------------------
 with tab_longest:
-    st.html('<div class="page-title">Longest walks</div>'
-            '<div class="page-sub">The ten longest walks in the selected period</div>')
+    section_head("longest", "Longest walks", "The ten longest walks in the selected period")
     longest = query(
         "SELECT walk_date, distance_km, duration_min, pace_min_per_km, condition, temp_high_c "
         "FROM silver.walk_sessions w LEFT JOIN silver.weather x ON x.weather_date = w.walk_date "
@@ -408,8 +422,7 @@ with tab_longest:
 
 # ---- weather ------------------------------------------------------------------------------
 with tab_weather:
-    st.html('<div class="page-title">Walking vs. weather</div>'
-            '<div class="page-sub">How often, and how far, by sky and temperature</div>')
+    section_head("weather", "Walking vs. weather", "How often, and how far, by sky and temperature")
     w = daily.dropna(subset=["condition"]).copy()
     w["walked"] = (w.walks > 0).astype(float)
     bands = ["Below 32 °F", "32–50 °F", "50–68 °F", "68–86 °F", "86 °F and up"]
@@ -436,8 +449,7 @@ with tab_weather:
 
 # ---- pipeline health ----------------------------------------------------------------------
 with tab_pipeline:
-    st.html('<div class="page-title">Pipeline health</div>'
-            '<div class="page-sub">What the last run checked, and what it set aside</div>')
+    section_head("pipeline", "Pipeline health", "What the last run checked, and what it set aside")
     run = query("SELECT run_id, status, finished_at FROM meta.runs ORDER BY run_id DESC LIMIT 1",
                 mtime)
     files = query("SELECT count(*) AS files, coalesce(sum(row_count), 0) AS rows "

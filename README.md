@@ -17,9 +17,9 @@ it, and shapes it into tables that answer simple questions:
 - Do I walk less when it rains, or when it's very hot or cold?
 - Can I trust these numbers? (Every run grades its own data quality.)
 
-The answers show up in a **dashboard** with five tabs:
+The answers show up in a **dashboard**: one scrolling page with five sections and a menu that stays pinned at the top, so you can scroll through everything or jump straight to a section.
 
-| Tab | What you see |
+| Section | What you see |
 |---|---|
 | Summary | a plain-English paragraph about the period, headline numbers with change vs. the previous period, miles per week |
 | Walking | time on foot, average walk and pace, 10k-step days, daily steps trend, miles by day of week |

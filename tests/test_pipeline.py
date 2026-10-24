@@ -75,5 +75,6 @@ def test_cli_and_dashboard(tmp_path, monkeypatch):
     app = testing.AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=60)
     app.run()
     assert not app.exception
-    assert [t.label for t in app.tabs] == [
-        "Summary", "Walking", "Longest walks", "Weather", "Pipeline health"]
+    page = " ".join(str(e.proto) for e in app.get("html"))
+    for section in ["summary", "walking", "longest", "weather", "pipeline"]:
+        assert f'id=\\"{section}\\"' in page or f'id="{section}"' in page
