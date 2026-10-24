@@ -3,7 +3,7 @@
 Turn walking and activity data into a clean, trustworthy dashboard, using the same
 techniques data teams use in production, all running on your laptop for free.
 
-![Dashboard](docs/dashboard.jpg)
+<p align="center"><img src="docs/dashboard.jpg" alt="Stride dashboard summary" width="420"></p>
 
 ## What it is
 

@@ -24,8 +24,44 @@ ACCENT_SOFT = "#f6d3cf"
 INK, MUTED, FAINT, LINE = "#141414", "#6f6f6f", "#9a9a9a", "#ececec"
 GOOD, WARN = "#1f9d55", "#b7791f"
 RANGES = {"Last 30 days": 30, "Last 90 days": 90, "Last 12 months": 365, "All time": None}
+MIN_BUCKET_DAYS = 5  # weather buckets with fewer days are too noisy to compare
+CHECKS = {  # check_name -> (title, plain-English description) for display
+    "walk_sessions_not_empty": ("Walk data present", "At least one walk was loaded."),
+    "walk_sessions_unique_id": ("Walks are unique", "No walk appears twice."),
+    "daily_steps_unique_key": ("Daily steps are unique", "One step total per day and device."),
+    "weather_unique_date": ("Weather is unique", "One weather record per day."),
+    "quarantine_rate_below_5pct": ("Feed looks healthy",
+                                   "Under 5% of incoming rows were rejected."),
+    "weather_covers_walk_dates": ("Weather covers every walk",
+                                  "Every day with a walk has a weather record."),
+    "daily_steps_cover_walk_steps": ("Step totals are consistent",
+                                     "No day has fewer steps than its walks recorded."),
+    "no_sessions_overlap": ("No overlapping walks",
+                            "Walks from the same device never overlap in time."),
+    "daily_activity_no_gaps": ("No missing days",
+                               "The daily table has exactly one row per calendar day."),
+    "weekly_km_reconciles_with_silver": ("Weekly distance adds up",
+                                         "Weekly totals match the cleaned walk data exactly."),
+    "weekly_walks_reconcile_with_silver": ("Weekly walk counts add up",
+                                           "Weekly walk counts match the cleaned walk data."),
+    "longest_walks_ranked": ("Rankings are complete",
+                             "Longest-walk ranks run 1 to n with no gaps."),
+    "weather_buckets_cover_days": ("Weather groups are complete",
+                                   "Every day with weather falls into exactly one group."),
+}
+REASONS = {
+    "missing session_id": "Missing session ID",
+    "unparseable start_time": "Unreadable start time",
+    "unparseable end_time": "Unreadable end time",
+    "end_time not after start_time": "Ends before it starts",
+    "duration_min missing or not positive": "Missing or zero duration",
+    "distance_km missing or out of range [0.1, 80]": "Distance missing or out of range",
+    "pace outside walking range [6, 30] min/km": "Pace outside walking range",
+    "negative steps": "Negative step count",
+}
 
-st.set_page_config(page_title="Stride · walking dashboard", page_icon="🚶", layout="wide")
+st.set_page_config(page_title="Stride · walking dashboard", page_icon=":material/directions_walk:",
+                   layout="wide")
 
 CSS = f"""
 <style>
@@ -35,7 +71,8 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   background: #f6f6f4; color: {INK};
   font-family: 'Inter', system-ui, sans-serif;
 }}
-[data-testid="stHeader"], [data-testid="stToolbar"], footer, #MainMenu {{ display: none; }}
+[data-testid="stHeader"], [data-testid="stToolbar"], footer, #MainMenu,
+[data-testid="stElementToolbar"] {{ display: none; }}
 .block-container {{
   max-width: 1120px; margin: 28px auto 48px; padding: 28px 44px 48px;
   background: #fff; border-radius: 16px;
@@ -43,6 +80,9 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 }}
 @media (max-width: 640px) {{
   .lede {{ font-size: 18px; }}
+  [data-testid="stHorizontalBlock"]:has(.brand) {{ flex-wrap: nowrap; gap: 12px; }}
+  [data-testid="stHorizontalBlock"]:has(.brand) > div {{ min-width: 0 !important; }}
+  [data-testid="stHorizontalBlock"]:has(.brand) > div:last-child {{ flex: 0 0 172px; }}
   .block-container {{ margin: 0; padding: 20px 16px 40px; border-radius: 0; box-shadow: none; }}
 }}
 
@@ -63,6 +103,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 [data-testid="stMain"], [data-testid="stAppViewContainer"] {{ scroll-behavior: smooth; }}
 .anchor {{ scroll-margin-top: 64px; }}
 .anchor.next {{ border-top: 1px solid {LINE}; margin-top: 56px; padding-top: 22px; }}
+[data-testid="stSelectbox"] {{ max-width: 190px; margin-left: auto; }}
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div {{
   border-radius: 999px; font-size: 13px; min-height: 34px; background: #fff;
 }}
@@ -79,12 +120,13 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 .note a, .note .link {{ color: {ACCENT}; text-decoration: underline; text-underline-offset: 2px; }}
 
 /* kpis */
-.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  border-top: 1px solid {LINE}; margin: 34px 0 8px; }}
-.kpi {{ padding: 18px 20px 4px 0; }}
-.kpi + .kpi {{ padding-left: 20px; border-left: 1px solid {LINE}; }}
-@media (max-width: 640px) {{
-  .kpi + .kpi {{ border-left: none; padding-left: 0; border-top: 1px solid {LINE}; }}
+.kpis {{ display: grid; grid-template-columns: repeat(4, 1fr); margin: 34px 0 8px; }}
+.kpi {{ padding: 18px 20px 6px; border-top: 1px solid {LINE}; border-left: 1px solid {LINE}; }}
+.kpi:first-child {{ padding-left: 0; border-left: none; }}
+@media (max-width: 720px) {{
+  .kpis {{ grid-template-columns: repeat(2, 1fr); }}
+  .kpi:nth-child(odd) {{ padding-left: 0; border-left: none; }}
+  .kpi .num {{ font-size: 36px !important; }}
 }}
 .kpi .num {{ font-size: 44px; font-weight: 800; letter-spacing: -.035em; line-height: 1.05; }}
 .kpi .unit {{ font-size: 16px; font-weight: 700; margin-left: 3px; letter-spacing: 0; }}
@@ -124,6 +166,8 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   border-bottom: 1px solid #f3f3f1; font-size: 13px; align-items: start; }}
 .check .name {{ font-weight: 600; }}
 .check .desc {{ color: {MUTED}; font-size: 12px; margin-top: 2px; }}
+.check .sev {{ font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: {FAINT}; margin-top: 5px; }}
 .check .n {{ text-align: right; color: {MUTED}; font-variant-numeric: tabular-nums; }}
 .pill {{ display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px;
   border-radius: 999px; }}
@@ -133,6 +177,9 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 .layer {{ font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
   color: {FAINT}; margin: 22px 0 6px; }}
 [data-testid="stExpander"] {{ border: 1px solid {LINE}; border-radius: 12px; }}
+.footer {{ margin-top: 56px; padding-top: 18px; border-top: 1px solid {LINE}; font-size: 12px;
+  color: {FAINT}; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }}
+.footer b {{ color: {INK}; font-weight: 700; font-style: italic; }}
 </style>
 """
 st.html(CSS)
@@ -165,6 +212,11 @@ def esc(value) -> str:
 
 def fmt_day(ts) -> str:
     return f"{pd.Timestamp(ts):%-d %b %Y}"
+
+
+def fmt_dur(minutes: float) -> str:
+    h, m = divmod(int(round(minutes)), 60)
+    return f"{h} h {m:02d} min" if h else f"{m} min"
 
 
 def delta_html(now: float, before: float | None, label: str) -> str:
@@ -249,7 +301,7 @@ def area_chart(df: pd.DataFrame, x: str, y: str, y_title: str, tooltip: list,
 
 
 # ---- header -------------------------------------------------------------------------------
-left, right = st.columns([4, 1], vertical_alignment="center")
+left, right = st.columns([5, 2], vertical_alignment="center")
 left.html('<span class="brand"><i></i>Stride</span>')
 range_label = right.selectbox("Date range", list(RANGES), index=1, label_visibility="collapsed")
 
@@ -297,25 +349,25 @@ with tab_summary:
     wet = daily.condition.isin(["rain", "snow"])
     dry_share = (daily[~wet & daily.condition.notna()].walks > 0).mean()
     wet_share = (daily[wet].walks > 0).mean()
+    period = f"Over the {range_label.lower()}" if days else "Across the full history"
     sentences = [
-        f"{'Over the ' + range_label.lower() if days else 'In total'}, this dataset logged "
-        f"{miles:,.0f} miles across "
-        f"{walks:,} walks, about {miles / weeks:,.0f} miles a week.",
-        f"There was a walk on {share_walked:.0%} of days",
+        f"{period}, {walks:,} walks covered {miles:,.0f} miles, "
+        f"an average of {miles / weeks:,.0f} miles a week.",
+        f"Walks happened on {share_walked:.0%} of days",
     ]
     if best is not None and best.longest_walk_mi > 0:
-        sentences[-1] += (f", and the longest covered {best.longest_walk_mi:.1f} miles on "
+        sentences[-1] += (f", and the longest reached {best.longest_walk_mi:.1f} miles on "
                           f"{fmt_day(best.activity_date)}.")
     else:
         sentences[-1] += "."
     if wet.any() and pd.notna(dry_share) and pd.notna(wet_share):
-        sentences.append(f"Weather matters: walks happened on {dry_share:.0%} of dry days but "
-                         f"only {wet_share:.0%} of rainy or snowy ones.")
+        sentences.append(f"Weather has a clear effect: {dry_share:.0%} of dry days included a "
+                         f"walk, compared with {wet_share:.0%} of rainy or snowy days.")
     sentences.append(
-        "Every data-quality check passed on the last run, so these numbers are safe to read."
+        f"All {checks_total} data-quality checks passed on the latest run."
         if checks_passed == checks_total
-        else f"{checks_total - checks_passed} data-quality check(s) need attention; "
-             "see Pipeline health."
+        else f"{checks_total - checks_passed} data-quality checks need attention "
+             "(see Pipeline health)."
     )
     lede = " ".join(sentences)
 
@@ -323,8 +375,7 @@ with tab_summary:
         f'<div class="eyebrow">{esc(range_label)} · {fmt_day(daily.activity_date.min())} '
         f'to {fmt_day(daily.activity_date.max())}</div>'
         f'<p class="lede">{esc(lede)}</p>'
-        f'<div class="note">Synthetic data from the seeded generator · '
-        f'<b>{checks_passed} of {checks_total}</b> checks passed</div>'
+        '<div class="note">Sample data, generated synthetically</div>'
         '<div class="kpis">'
         + kpi("Distance walked", f"{miles:,.0f}", "mi",
               delta_html(miles, total(prior, "walk_mi"), vs) or "total over the period")
@@ -333,7 +384,7 @@ with tab_summary:
         + kpi("Avg daily steps", f"{daily.steps.mean():,.0f}", "",
               delta_html(daily.steps.mean(),
                          None if prior is None else prior.steps.mean(), vs)
-              or "highest device per day")
+              or "across all devices")
         + kpi("Days with a walk", f"{share_walked * 100:.0f}", "%",
               f"{int((daily.walks > 0).sum())} of {len(daily)} days")
         + "</div>"
@@ -352,7 +403,6 @@ with tab_summary:
 with tab_walking:
     section_head("walking", "Walking", "Distance, time and steps, day by day")
     hours = daily.walk_minutes.sum() / 60
-    walk_days = daily[daily.walks > 0]
     st.html(
         '<div class="kpis" style="margin-top:0">'
         + kpi("Time on foot", f"{hours:,.0f}", "hrs", f"about {hours / weeks:.1f} hours a week")
@@ -378,10 +428,10 @@ with tab_walking:
            .groupby("dow").agg(mi=("walk_mi", "mean"), walked=("walks", lambda s: (s > 0).mean())))
     order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow = dow.reindex([d for d in order if d in dow.index])
-    st.html(bar_list([(d, f"walked {r.walked:.0%} of the time", r.mi, f"{r.mi:.1f} mi")
+    st.html(bar_list([(d, f"walks on {r.walked:.0%} of {d}s", r.mi, f"{r.mi:.1f} mi")
                       for d, r in dow.iterrows()]))
 
-    with st.expander("Daily data (table view)"):
+    with st.expander("View daily data as a table"):
         table = daily[["activity_date", "steps", "walks", "walk_mi", "walk_minutes",
                        "longest_walk_mi", "condition", "temp_high_f"]]
         st.dataframe(table, hide_index=True, use_container_width=True, column_config={
@@ -408,14 +458,14 @@ with tab_longest:
         st.html(
             '<div class="eyebrow">Longest in this period</div>'
             f'<p class="lede">{top.distance_km * MI_PER_KM:.1f} miles on '
-            f'{fmt_day(top.walk_date)}, in {top.duration_min / 60:.1f} hours '
+            f'{fmt_day(top.walk_date)}, in {fmt_dur(top.duration_min)} '
             f'({esc(str(top.condition).replace("_", " "))}, '
             f'high of {top.temp_high_c * 9 / 5 + 32:.0f} °F).</p>'
         )
         st.html(bar_list([
             (fmt_day(r.walk_date),
-             f"{r.duration_min / 60:.1f} h · {r.pace_min_per_km * 1.609344:.1f} min/mi · "
-             f"{str(r.condition).replace('_', ' ')}",
+             f"{fmt_dur(r.duration_min)} · {r.pace_min_per_km * 1.609344:.1f} min/mi · "
+             f"{str(r.condition).replace('_', ' ')}, {r.temp_high_c * 9 / 5 + 32:.0f} °F",
              r.distance_km, f"{r.distance_km * MI_PER_KM:.1f} mi")
             for r in longest.itertuples()
         ]))
@@ -431,7 +481,8 @@ with tab_weather:
     def grouped(col, order):
         g = w.groupby(col, observed=True).agg(days=("walked", "size"), share=("walked", "mean"),
                                               mi=("walk_mi", "mean"))
-        return g.reindex([o for o in order if o in g.index])
+        g = g.reindex([o for o in order if o in g.index])
+        return g[g.days >= MIN_BUCKET_DAYS]
 
     cond = grouped("condition", ["clear", "partly_cloudy", "overcast", "rain", "snow"])
     temp = grouped("band", bands)
@@ -444,8 +495,8 @@ with tab_weather:
         st.html('<div class="chart-title">Average miles per day, by daily high</div>'
                 + bar_list([(k, f"{int(r.days)} days", r.mi, f"{r.mi:.1f} mi")
                             for k, r in temp.iterrows()]))
-    st.html('<p class="note" style="margin-top:18px">Full-history version: '
-            '<span class="link">gold.walking_vs_weather</span>.</p>')
+    st.html(f'<p class="note" style="margin-top:18px">Groups with fewer than '
+            f'{MIN_BUCKET_DAYS} days in the selected period are left out.</p>')
 
 # ---- pipeline health ----------------------------------------------------------------------
 with tab_pipeline:
@@ -458,39 +509,46 @@ with tab_pipeline:
                        "GROUP BY 1 ORDER BY 2 DESC", mtime)
     score = round(100 * checks_passed / checks_total) if checks_total else 0
     errors = dq[(dq.severity == "error") & ~dq.passed]
-    headline = ("Every check passed. The numbers are safe to read." if score == 100 else
-                "Blocking checks failed. Gold was not updated." if len(errors) else
-                "All blocking checks passed, with warnings to look at.")
+    headline = ("All checks passed on the latest run." if score == 100 else
+                "Blocking checks failed, so reporting tables were not updated." if len(errors)
+                else "All blocking checks passed, with warnings to review.")
     r = run.iloc[0] if not run.empty else None
     st.html(
         f'<div class="health">{ring(score, GOOD if not len(errors) else ACCENT)}<div>'
         f'<div class="eyebrow" style="margin:0 0 4px">Quality score</div>'
         f'<h3>{esc(headline)}</h3>'
         f'<div class="note">{checks_passed} of {checks_total} checks passed'
-        + (f' · run #{r.run_id} {esc(r.status)} {r.finished_at:%-d %b %Y, %H:%M}' if r is not None
-           else "")
-        + f' · {int(files.files)} files, {int(files.rows):,} raw rows ingested</div></div></div>'
+        + (f' · last run {r.finished_at:%-d %b %Y, %H:%M}' if r is not None else "")
+        + f' · {int(files.files)} files and {int(files.rows):,} raw rows ingested'
+        '</div></div></div>'
     )
 
     def check_row(c) -> str:
         status = "pass" if c.passed else ("fail" if c.severity == "error" else "warn")
-        label = {"pass": "✓ Pass", "warn": "! Warn", "fail": "✕ Fail"}[status]
+        label = {"pass": "Passed", "warn": "Warning", "fail": "Failed"}[status]
+        title, desc = CHECKS.get(c.check_name, (c.check_name.replace("_", " ").capitalize(),
+                                                c.description))
         return (f'<div class="check"><div><span class="pill {status}">{label}</span></div>'
-                f'<div><div class="name">{esc(c.check_name.replace("_", " ").capitalize())}</div>'
-                f'<div class="desc">{esc(c.description)}'
-                f' · {"blocking" if c.severity == "error" else "warning"}</div></div>'
-                f'<div class="n">{int(c.failed_rows)} rows</div></div>')
+                f'<div><div class="name">{esc(title)}</div>'
+                f'<div class="desc">{esc(desc)}</div>'
+                f'<div class="sev">{"Blocks the run" if c.severity == "error" else "Warning only"}'
+                '</div></div>'
+                f'<div class="n">{"—" if c.passed else f"{int(c.failed_rows):,}"}</div></div>')
 
     c1, c2 = st.columns([3, 2], gap="large")
     with c1:
-        for layer in ["silver", "gold"]:
+        layers = {"silver": "Silver layer · cleaned data", "gold": "Gold layer · reporting tables"}
+        for layer, title in layers.items():
             rows = dq[dq.layer == layer]
-            st.html(f'<div class="layer">{layer} checks</div><div class="checks">'
+            st.html(f'<div class="layer">{title}</div><div class="checks">'
                     + "".join(check_row(c) for c in rows.itertuples()) + "</div>")
     with c2:
         st.html('<div class="layer">Quarantined rows</div>'
-                '<p class="note" style="margin:0 0 6px">Set aside in silver.quarantine with a '
-                'reason, never silently dropped.</p>'
-                + (bar_list([(q.reason, "", q.n, f"{q.n}")
+                '<p class="note" style="margin:0 0 6px">Invalid rows are set aside with a '
+                'reason instead of being silently dropped.</p>'
+                + (bar_list([(REASONS.get(q.reason, q.reason.capitalize()), "", q.n, f"{q.n}")
                              for q in quarantine.itertuples()], compact=True)
                    if not quarantine.empty else '<p class="note">Nothing quarantined.</p>'))
+
+st.html('<div class="footer"><span><b>Stride</b> · a wellness data pipeline</span>'
+        '<span>Python · DuckDB · Streamlit · sample data, generated synthetically</span></div>')
