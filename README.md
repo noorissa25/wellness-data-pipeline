@@ -1,23 +1,68 @@
 # Wellness data pipeline
 
-A small, complete data engineering project for walking and activity data. Raw exports land
-as files, move through **bronze → silver → gold** layers in DuckDB, are checked for quality at
-every step, and feed a Streamlit dashboard of weekly walking totals, longest walks, and
-walking vs. weather.
-
-It runs locally in a few seconds, costs nothing, and needs only Python.
-
-The dashboard has five tabs: a plain-English **Summary** with headline numbers,
-**Walking** (time, pace, steps and day-of-week patterns), **Longest walks**, **Weather**,
-and **Pipeline health** (a quality score, every check from the last run, and what was
-quarantined). It works on phones as well as desktops. The warehouse stores distances in
-kilometres and temperatures in °C; the dashboard shows miles and °F.
+Turn walking and activity data into a clean, trustworthy dashboard, using the same
+techniques data teams use in production, all running on your laptop for free.
 
 ![Dashboard](docs/dashboard.jpg)
+
+## What it is
+
+Phone and watch exports are messy. The same walk shows up twice, two exports overlap,
+a timestamp comes through as "N/A", a GPS glitch records a 2-minute mile. This project takes
+that raw data and runs it through a small **data pipeline**. The pipeline cleans it, checks
+it, and shapes it into tables that answer simple questions:
+
+- How far did I walk each week, and is that going up or down?
+- What were my longest walks, and what was the weather like?
+- Do I walk less when it rains, or when it's very hot or cold?
+- Can I trust these numbers? (Every run grades its own data quality.)
+
+The answers show up in a **dashboard** with five tabs:
+
+| Tab | What you see |
+|---|---|
+| Summary | a plain-English paragraph about the period, headline numbers with change vs. the previous period, miles per week |
+| Walking | time on foot, average walk and pace, 10k-step days, daily steps trend, miles by day of week |
+| Longest walks | the top ten walks with duration, pace and weather |
+| Weather | how often and how far walks happen by sky condition and temperature |
+| Pipeline health | a quality score, every check from the last run, and any rows that were set aside |
+
+It works on phones and desktops. Distances show in miles and temperatures in °F.
 
 > **About the data.** By default everything is synthetic, produced by a seeded generator.
 > No real person's health data is in this repository. You can import your own Apple Health or
 > Google Fit export; it stays in the git-ignored `data/` folder on your machine.
+
+## Why use it
+
+- **See your own walking habits.** Import an Apple Health or Google Fit export and get
+  weekly totals, your longest walks and how weather affects you, without uploading your
+  health data anywhere. Everything runs and stays on your computer.
+- **Learn modern data engineering on a small, friendly dataset.** It shows the bronze →
+  silver → gold (medallion) pattern, schema checks, deduplication, incremental loads and
+  data-quality gates end to end. The pipeline and dashboard are about 1,700 lines of Python and SQL you can read
+  in an afternoon.
+- **A starting template.** The layers, checks and tests are generic, so you can swap in
+  sleep, workouts or any other daily data.
+- **Free and fast.** No cloud account, no Java, no Docker. One command builds everything in
+  seconds.
+
+## Built with
+
+| Tool | What it does here | Why this one |
+|---|---|---|
+| **Python** | runs every step of the pipeline | readable, and the standard language for data work |
+| **DuckDB** | the database holding the bronze, silver and gold tables | a full analytical SQL database in one file, with no server to run; fast on millions of rows and needs no setup |
+| **SQL** | the cleaning, checks and summary tables | the language data teams already use, so the logic carries over to Databricks, Snowflake or BigQuery |
+| **Streamlit + Altair** | the dashboard and its charts | turns a Python script into an interactive web app without writing a separate frontend |
+| **pytest** | 39 tests across every layer, plus a dashboard render test | catches broken transforms before they reach the dashboard |
+| **ruff** | linting | keeps the code consistent |
+| **Make** | `make preview`, `make run`, `make test` | one short command for each job, nothing extra to install |
+| **GitHub Actions** | runs lint, tests and a full build on every push | proves the project works on a clean machine, on Python 3.9 and 3.12 |
+
+Why not PySpark? It needs Java and takes seconds just to start, which is overkill for a few
+thousand rows a year. The design-decisions section below shows how each piece maps to
+Databricks if the data ever grows.
 
 ## Quick start
 
