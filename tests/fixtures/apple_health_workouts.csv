@@ -1,0 +1,4 @@
+workoutActivityType,duration,durationUnit,totalDistance,totalDistanceUnit,sourceName,startDate,endDate
+HKWorkoutActivityTypeWalking,72.5,min,6.4,km,Synthetic Watch,2026-02-01 08:00:00 -0500,2026-02-01 09:12:30 -0500
+HKWorkoutActivityTypeHiking,3.1,hr,8.2,mi,Synthetic Watch,2026-02-07 09:30:00 -0500,2026-02-07 12:36:00 -0500
+HKWorkoutActivityTypeRunning,30,min,5,km,Synthetic Watch,2026-02-03 07:00:00 -0500,2026-02-03 07:30:00 -0500

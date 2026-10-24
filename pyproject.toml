@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wellness-data-pipeline"
+version = "0.1.0"
+description = "A local medallion (bronze/silver/gold) pipeline for walking and activity data, built on DuckDB."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "duckdb>=1.1,<2",
+]
+
+[project.optional-dependencies]
+dashboard = [
+    "streamlit>=1.38",
+    "altair>=5",
+    "pandas>=2",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+wellness = "wellness.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["UP007"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wellness", "conftest"]

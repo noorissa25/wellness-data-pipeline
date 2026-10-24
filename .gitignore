@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.streamlit/secrets.toml
+.env
+.env.*
+.claude/
+*.log
+.DS_Store
+
+# generated data and anything imported from a real export
+data/landing/
+data/warehouse/
+data/exports/
