@@ -75,4 +75,5 @@ def test_cli_and_dashboard(tmp_path, monkeypatch):
     app = testing.AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=60)
     app.run()
     assert not app.exception
-    assert [m.label for m in app.metric][:2] == ["Distance walked", "Walks"]
+    assert [t.label for t in app.tabs] == [
+        "Summary", "Walking", "Longest walks", "Weather", "Pipeline health"]

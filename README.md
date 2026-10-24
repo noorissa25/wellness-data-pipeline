@@ -7,6 +7,12 @@ walking vs. weather.
 
 It runs locally in a few seconds, costs nothing, and needs only Python.
 
+The dashboard has five tabs: a plain-English **Summary** with headline numbers,
+**Walking** (time, pace, steps and day-of-week patterns), **Longest walks**, **Weather**,
+and **Pipeline health** (a quality score, every check from the last run, and what was
+quarantined). It works on phones as well as desktops. The warehouse stores distances in
+kilometres and temperatures in °C; the dashboard shows miles and °F.
+
 ![Dashboard](docs/dashboard.jpg)
 
 > **About the data.** By default everything is synthetic, produced by a seeded generator.
