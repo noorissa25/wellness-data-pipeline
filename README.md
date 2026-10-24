@@ -32,7 +32,7 @@ The answers show up in a **dashboard**: one scrolling page with five sections an
 | Weather | how often and how far walks happen by sky condition and temperature |
 | Pipeline health | a quality score, every check from the last run, and any rows that were set aside |
 
-It works on phones and desktops. Distances show in miles and temperatures in °F.
+It is designed for iPhone and other phones as well as laptops. Distances show in miles and temperatures in °F.
 
 > **About the data.** By default everything is synthetic, produced by a seeded generator.
 > No real person's health data is in this repository. You can import your own Apple Health or
@@ -86,6 +86,31 @@ make test        # unit + end-to-end tests
 Other targets: `make incremental` (land three more weeks and load only that batch),
 `make status` (runs, watermarks, quality results, quarantine), `make lint`, `make clean`.
 Requires Python 3.9+ and `make`.
+
+### Open it on your iPhone
+
+While `make preview` is running, Streamlit prints two addresses:
+
+```
+Local URL:   http://localhost:8501        <- this computer only
+Network URL: http://192.168.x.x:8501      <- any phone or laptop on the same Wi-Fi
+```
+
+Connect your iPhone to the same Wi-Fi network as your computer (or connect the computer to
+the iPhone's Personal Hotspot) and open the **Network URL** in Safari. Tap the Share button
+and choose **Add to Home Screen** to open it like an app.
+
+### Get a public link (free)
+
+To share a link that works on any device, anywhere, deploy to
+[Streamlit Community Cloud](https://share.streamlit.io):
+
+1. Sign in with GitHub and choose **Create app → Deploy a public app from GitHub**.
+2. Repository `noorissa25/wellness-data-pipeline`, branch `main`, main file `dashboard/app.py`.
+3. Deploy. On first start the app generates the sample data and runs the pipeline itself
+   (about a minute), then loads instantly after that.
+
+Hosting installs from `requirements.txt`; local development uses `make setup`.
 
 ## Architecture
 

@@ -78,3 +78,13 @@ def test_cli_and_dashboard(tmp_path, monkeypatch):
     page = " ".join(str(e.proto) for e in app.get("html"))
     for section in ["summary", "walking", "longest", "weather", "pipeline"]:
         assert f'id=\\"{section}\\"' in page or f'id="{section}"' in page
+
+
+def test_dashboard_builds_sample_data_on_first_start(tmp_path, monkeypatch):
+    """A fresh host (e.g. Streamlit Community Cloud) has no warehouse; the app makes one."""
+    testing = pytest.importorskip("streamlit.testing.v1")
+    monkeypatch.setenv("WELLNESS_DATA_DIR", str(tmp_path))
+    app = testing.AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=120)
+    app.run()
+    assert not app.exception
+    assert (tmp_path / "warehouse" / "wellness.duckdb").exists()

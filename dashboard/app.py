@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import html
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -15,8 +16,10 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-DATA_DIR = Path(os.environ.get("WELLNESS_DATA_DIR", Path(__file__).resolve().parents[1] / "data"))
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = Path(os.environ.get("WELLNESS_DATA_DIR", ROOT / "data"))
 DB_PATH = DATA_DIR / "warehouse" / "wellness.duckdb"
+sys.path.insert(0, str(ROOT / "src"))  # lets hosted deployments import the pipeline uninstalled
 
 MI_PER_KM = 0.621371
 ACCENT = "#d63a2f"
@@ -83,6 +86,13 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   [data-testid="stHorizontalBlock"]:has(.brand) {{ flex-wrap: nowrap; gap: 12px; }}
   [data-testid="stHorizontalBlock"]:has(.brand) > div {{ min-width: 0 !important; }}
   [data-testid="stHorizontalBlock"]:has(.brand) > div:last-child {{ flex: 0 0 172px; }}
+  /* iOS Safari zooms into inputs under 16px when tapped */
+  [data-testid="stSelectbox"] div[data-baseweb="select"] > div, [data-testid="stSelectbox"] input
+    {{ font-size: 16px !important; }}
+  /* fade the right edge so the section menu reads as swipeable */
+  .nav {{ gap: 22px; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 32px; }}
+  .nav a {{ padding: 12px 0; }}
   .block-container {{ margin: 0; padding: 20px 16px 40px; border-radius: 0; box-shadow: none; }}
 }}
 
@@ -192,9 +202,23 @@ def query(sql: str, _mtime: float, params: tuple = ()) -> pd.DataFrame:
         return con.execute(sql, list(params)).df()
 
 
+@st.cache_resource(show_spinner="Building the sample data…")
+def build_sample_warehouse() -> None:
+    """First start on a fresh machine or host: generate sample data and run the pipeline once."""
+    from wellness import pipeline, warehouse
+    from wellness.generate import GenerateConfig, write_landing
+
+    landing = DATA_DIR / "landing"
+    write_landing(GenerateConfig(), landing)
+    con = warehouse.connect(DB_PATH)
+    try:
+        pipeline.run(con, landing)
+    finally:
+        con.close()
+
+
 if not DB_PATH.exists():
-    st.error("No warehouse found. Run `make run` first, then reload this page.")
-    st.stop()
+    build_sample_warehouse()
 mtime = DB_PATH.stat().st_mtime
 
 all_daily = query("SELECT * FROM gold.daily_activity ORDER BY activity_date", mtime)

@@ -1,0 +1,6 @@
+# Dependencies for hosting the dashboard (e.g. Streamlit Community Cloud).
+# Local development uses `make setup`, which installs from pyproject.toml.
+duckdb>=1.1,<2
+streamlit>=1.38
+altair>=5
+pandas>=2
