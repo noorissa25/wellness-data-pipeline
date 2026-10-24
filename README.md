@@ -3,6 +3,8 @@
 Turn walking and activity data into a clean, trustworthy dashboard, using the same
 techniques data teams use in production, all running on your laptop for free.
 
+**[View the live dashboard →](https://noorissa25.github.io/wellness-data-pipeline/)** (works on iPhone and desktop, no sign-in)
+
 <p align="center">
   <img src="docs/dashboard-desktop.jpg" alt="Stride dashboard on desktop" width="64%">
   &nbsp;
@@ -83,7 +85,7 @@ make dashboard   # serve the dashboard at http://localhost:8501 (PORT=8600 to ch
 make test        # unit + end-to-end tests
 ```
 
-Other targets: `make incremental` (land three more weeks and load only that batch),
+Other targets: `make site` (export the static page), `make incremental` (land three more weeks and load only that batch),
 `make status` (runs, watermarks, quality results, quarantine), `make lint`, `make clean`.
 Requires Python 3.9+ and `make`.
 
@@ -100,17 +102,22 @@ Connect your iPhone to the same Wi-Fi network as your computer (or connect the c
 the iPhone's Personal Hotspot) and open the **Network URL** in Safari. Tap the Share button
 and choose **Add to Home Screen** to open it like an app.
 
-### Get a public link (free)
+### The public version
 
-To share a link that works on any device, anywhere, deploy to
-[Streamlit Community Cloud](https://share.streamlit.io):
+The live dashboard at [noorissa25.github.io/wellness-data-pipeline/](https://noorissa25.github.io/wellness-data-pipeline/) is a static page that
+the pipeline publishes itself. On every push to `main`, the `publish site` GitHub Actions
+workflow rebuilds every layer from synthetic data (an initial load, then an incremental
+batch), runs `python -m wellness site`, and pushes the page to the `gh-pages` branch, which
+GitHub Pages serves. The page embeds the gold and meta tables as JSON and recalculates each
+section in the browser, so it needs no server and loads quickly on a phone.
 
-1. Sign in with GitHub and choose **Create app → Deploy a public app from GitHub**.
-2. Repository `noorissa25/wellness-data-pipeline`, branch `main`, main file `dashboard/app.py`.
-3. Deploy. On first start the app generates the sample data and runs the pipeline itself
-   (about a minute), then loads instantly after that.
+```bash
+make site        # export the same page locally to site/index.html
+```
 
-Hosting installs from `requirements.txt`; local development uses `make setup`.
+The Streamlit app can also be hosted on any Python host (for example Streamlit Community
+Cloud, with main file `dashboard/app.py`); it builds its own sample data on first start and
+installs from `requirements.txt`.
 
 ## Architecture
 
@@ -285,7 +292,9 @@ src/wellness/
   quality.py     table-level checks
   gold.py        gold tables
   pipeline.py    one run, end to end
-  cli.py         python -m wellness generate | import | run | status
+  labels.py      plain-English names for checks and quarantine reasons
+  site.py        exports the gold layer as a static page (site_template.html)
+  cli.py         python -m wellness generate | import | run | status | site
 dashboard/app.py Streamlit over gold + meta
 tests/           unit tests per layer, end-to-end and dashboard smoke test
 ```
@@ -296,4 +305,5 @@ tests/           unit tests per layer, end-to-end and dashboard smoke test
 dedup, newest-batch-wins, watermarks, gold math on hand-built data, importer unit conversion),
 end-to-end runs (re-run is a no-op, a new batch extends gold, a failing gold check leaves the
 previous gold in place and marks the run failed), and a headless render of the dashboard.
-GitHub Actions runs lint, tests and a full pipeline build on Python 3.9 and 3.12.
+GitHub Actions runs lint, tests and a full pipeline build on Python 3.9 and 3.12, and a
+second workflow publishes the static dashboard to GitHub Pages.

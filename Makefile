@@ -3,7 +3,7 @@ VENV   ?= .venv
 PY     := $(VENV)/bin/python
 DATA   ?= data
 
-.PHONY: help setup generate pipeline run incremental status dashboard preview test lint clean
+.PHONY: help setup generate pipeline run incremental status dashboard preview site test lint clean
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -41,6 +41,9 @@ dashboard: $(PY) $(DATA)/warehouse/wellness.duckdb  ## serve the dashboard at ht
 
 preview: dashboard  ## one command: set up, build the data if needed, serve the dashboard
 
+site: $(PY) $(DATA)/warehouse/wellness.duckdb  ## export the static web page to ./site (open site/index.html)
+	$(PY) -m wellness --data-dir $(DATA) site --out site
+
 test: $(PY)  ## run unit and end-to-end tests
 	$(PY) -m pytest
 
@@ -48,4 +51,4 @@ lint: $(PY)  ## lint with ruff
 	$(VENV)/bin/ruff check src tests dashboard
 
 clean:  ## delete generated data and the warehouse
-	rm -rf $(DATA)/landing $(DATA)/warehouse
+	rm -rf $(DATA)/landing $(DATA)/warehouse site

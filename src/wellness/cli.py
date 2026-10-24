@@ -8,7 +8,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from wellness import config, importers, pipeline, warehouse
+from wellness import config, importers, pipeline, site, warehouse
 from wellness.generate import GenerateConfig, write_landing
 
 
@@ -32,6 +32,9 @@ def _parser() -> argparse.ArgumentParser:
 
     sub.add_parser("run", help="ingest new landing files and rebuild silver and gold")
     sub.add_parser("status", help="show recent runs, watermarks and data-quality results")
+
+    w = sub.add_parser("site", help="export the gold layer as a static web page")
+    w.add_argument("--out", type=Path, default=Path("site"), help="output folder (default: ./site)")
     return p
 
 
@@ -79,4 +82,13 @@ def main(argv: list[str] | None = None) -> int:
             con.close()
     elif args.command == "status":
         _status(db_path)
+    elif args.command == "site":
+        if not db_path.exists():
+            print("no warehouse yet; run `make run` first", file=sys.stderr)
+            return 1
+        con = warehouse.connect(db_path, read_only=True)
+        try:
+            print(f"wrote {site.export_site(con, args.out)}")
+        finally:
+            con.close()
     return 0

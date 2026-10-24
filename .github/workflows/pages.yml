@@ -1,0 +1,42 @@
+name: publish site
+
+# Rebuilds the pipeline from synthetic data and publishes the static dashboard
+# to the gh-pages branch, which GitHub Pages serves.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e .
+      - name: Build every layer (initial load, then an incremental batch)
+        run: |
+          python -m wellness generate
+          python -m wellness run
+          python -m wellness generate --start 2026-10-01 --days 21 --batches 1 --seed 7
+          python -m wellness run
+      - name: Export the static site
+        run: python -m wellness site --out _site
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
+          commit_message: "Publish site"

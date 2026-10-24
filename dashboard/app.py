@@ -21,6 +21,8 @@ DATA_DIR = Path(os.environ.get("WELLNESS_DATA_DIR", ROOT / "data"))
 DB_PATH = DATA_DIR / "warehouse" / "wellness.duckdb"
 sys.path.insert(0, str(ROOT / "src"))  # lets hosted deployments import the pipeline uninstalled
 
+from wellness.labels import CHECKS, REASONS  # noqa: E402
+
 MI_PER_KM = 0.621371
 ACCENT = "#d63a2f"
 ACCENT_SOFT = "#f6d3cf"
@@ -28,40 +30,6 @@ INK, MUTED, FAINT, LINE = "#141414", "#6f6f6f", "#9a9a9a", "#ececec"
 GOOD, WARN = "#1f9d55", "#b7791f"
 RANGES = {"Last 30 days": 30, "Last 90 days": 90, "Last 12 months": 365, "All time": None}
 MIN_BUCKET_DAYS = 5  # weather buckets with fewer days are too noisy to compare
-CHECKS = {  # check_name -> (title, plain-English description) for display
-    "walk_sessions_not_empty": ("Walk data present", "At least one walk was loaded."),
-    "walk_sessions_unique_id": ("Walks are unique", "No walk appears twice."),
-    "daily_steps_unique_key": ("Daily steps are unique", "One step total per day and device."),
-    "weather_unique_date": ("Weather is unique", "One weather record per day."),
-    "quarantine_rate_below_5pct": ("Feed looks healthy",
-                                   "Under 5% of incoming rows were rejected."),
-    "weather_covers_walk_dates": ("Weather covers every walk",
-                                  "Every day with a walk has a weather record."),
-    "daily_steps_cover_walk_steps": ("Step totals are consistent",
-                                     "No day has fewer steps than its walks recorded."),
-    "no_sessions_overlap": ("No overlapping walks",
-                            "Walks from the same device never overlap in time."),
-    "daily_activity_no_gaps": ("No missing days",
-                               "The daily table has exactly one row per calendar day."),
-    "weekly_km_reconciles_with_silver": ("Weekly distance adds up",
-                                         "Weekly totals match the cleaned walk data exactly."),
-    "weekly_walks_reconcile_with_silver": ("Weekly walk counts add up",
-                                           "Weekly walk counts match the cleaned walk data."),
-    "longest_walks_ranked": ("Rankings are complete",
-                             "Longest-walk ranks run 1 to n with no gaps."),
-    "weather_buckets_cover_days": ("Weather groups are complete",
-                                   "Every day with weather falls into exactly one group."),
-}
-REASONS = {
-    "missing session_id": "Missing session ID",
-    "unparseable start_time": "Unreadable start time",
-    "unparseable end_time": "Unreadable end time",
-    "end_time not after start_time": "Ends before it starts",
-    "duration_min missing or not positive": "Missing or zero duration",
-    "distance_km missing or out of range [0.1, 80]": "Distance missing or out of range",
-    "pace outside walking range [6, 30] min/km": "Pace outside walking range",
-    "negative steps": "Negative step count",
-}
 
 st.set_page_config(page_title="Stride · walking dashboard", page_icon=":material/directions_walk:",
                    layout="wide")

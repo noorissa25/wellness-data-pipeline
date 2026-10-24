@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f6f4">
+<meta name="description" content="Stride: a walking dashboard built from a local bronze/silver/gold data pipeline. Sample data, generated synthetically.">
+<title>Stride · walking dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23d63a2f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #141414; --muted: #6f6f6f; --faint: #9a9a9a; --line: #ececec; --soft-line: #f3f3f1;
+  --accent: #d63a2f; --accent-soft: #f6d3cf; --good: #1f9d55; --warn: #b7791f;
+  --page: #f6f6f4; --card: #ffffff;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 14px; }
+.card { max-width: 1120px; margin: 28px auto 48px; padding: 28px 44px 40px; background: var(--card);
+  border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 18px 48px rgba(20,20,20,.07); }
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 6px;
+  border: 1.5px solid var(--ink); border-radius: 999px; font-weight: 800; font-size: 15px;
+  letter-spacing: -.01em; font-style: italic; }
+.brand i { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.range { position: relative; min-width: 0; }
+.brand { flex: none; }
+.range select { max-width: 100%; }
+.range select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 13px; color: var(--ink);
+  background: #fff; border: 1px solid #e3e3e0; border-radius: 999px; padding: 8px 38px 8px 16px;
+  min-height: 36px; cursor: pointer; }
+.range::after { content: ""; position: absolute; right: 16px; top: 50%; width: 7px; height: 7px;
+  border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+  transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+
+nav.sections { position: sticky; top: 0; z-index: 10; background: var(--card); margin: 14px 0 0;
+  display: flex; gap: 28px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+nav.sections::-webkit-scrollbar { display: none; }
+nav.sections a { padding: 12px 0 10px; font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+nav.sections a:hover { color: var(--ink); }
+nav.sections a.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+
+section { scroll-margin-top: 56px; }
+section + section { border-top: 1px solid var(--line); margin-top: 56px; }
+.title { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 30px 0 2px; }
+.sub { font-size: 13px; color: var(--muted); margin-bottom: 26px; }
+.eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 10px; }
+.lede { font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; line-height: 1.6;
+  max-width: 66ch; margin: 0 0 12px; }
+.note { font-size: 12px; color: var(--muted); }
+.chart-title { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); margin: 34px 0 6px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin: 34px 0 8px; }
+.kpi { padding: 18px 20px 6px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.kpi:first-child { padding-left: 0; border-left: none; }
+.kpi .num { font-size: 44px; font-weight: 800; letter-spacing: -.035em; line-height: 1.05;
+  font-variant-numeric: tabular-nums; }
+.kpi .unit { font-size: 16px; font-weight: 700; margin-left: 3px; letter-spacing: 0; }
+.kpi .cap { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+.delta { font-size: 11.5px; font-weight: 600; }
+.delta.up { color: var(--good); } .delta.down { color: var(--accent); } .delta.flat { color: var(--faint); }
+
+.chart { position: relative; width: 100%; height: 230px; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart text { font-family: inherit; font-size: 11px; fill: var(--faint); }
+.tip { position: absolute; pointer-events: none; background: #fff; border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08); white-space: nowrap; opacity: 0; transition: opacity .1s; }
+.tip b { font-weight: 600; } .tip span { color: var(--muted); }
+
+.bars { display: grid; margin-top: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(110px, 200px) 1fr 84px; align-items: center;
+  gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--soft-line); font-size: 13px; }
+.bar-row .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .label small { display: block; color: var(--faint); font-size: 11px; }
+.track { height: 6px; background: var(--soft-line); border-radius: 999px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.bar-row .val { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bars.compact .bar-row { grid-template-columns: 1fr 48px; }
+.bars.compact .track { grid-column: 1 / -1; grid-row: 2; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+.cols.wide-left { grid-template-columns: 3fr 2fr; }
+
+.health { display: flex; gap: 22px; align-items: center; margin: 8px 0 26px; }
+.health h3 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 0 0 4px; }
+.ring { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.ring span { width: 62px; height: 62px; border-radius: 50%; background: #fff; display: grid;
+  place-items: center; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.layer { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); margin: 22px 0 6px; }
+.checks { border-top: 1px solid var(--line); }
+.check { display: grid; grid-template-columns: 78px 1fr 40px; gap: 14px; padding: 12px 0;
+  border-bottom: 1px solid var(--soft-line); font-size: 13px; align-items: start; }
+.check .name { font-weight: 600; }
+.check .desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.check .sev { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--faint); margin-top: 5px; }
+.check .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+.pill.pass { background: #e7f5ec; color: var(--good); }
+.pill.warn { background: #fbf1df; color: var(--warn); }
+.pill.fail { background: #fbe5e3; color: var(--accent); }
+
+details { margin-top: 26px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+summary { cursor: pointer; font-size: 13px; font-weight: 500; }
+.table-wrap { overflow-x: auto; margin-top: 12px; max-height: 420px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--soft-line); white-space: nowrap; }
+th:first-child, td:first-child, th:nth-last-child(2), td:nth-last-child(2) { text-align: left; }
+th { position: sticky; top: 0; background: #fff; color: var(--faint); font-weight: 600; font-size: 11px; }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px;
+  color: var(--faint); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+footer b { color: var(--ink); font-weight: 700; font-style: italic; }
+footer a { color: var(--muted); }
+
+@media (max-width: 720px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .kpi:nth-child(odd) { padding-left: 0; border-left: none; }
+  .kpi .num { font-size: 36px; }
+  .cols, .cols.wide-left { grid-template-columns: 1fr; gap: 8px; }
+}
+@media (max-width: 640px) {
+  .card { margin: 0; padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+    border-radius: 0; box-shadow: none; }
+  body { background: var(--card); }
+  .lede { font-size: 18px; }
+  .range select { font-size: 16px; }  /* iOS Safari zooms into inputs under 16px */
+  nav.sections { gap: 22px; padding-right: 32px;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .bar-row { grid-template-columns: 1fr 64px; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+}
+</style>
+</head>
+<body>
+<main class="card">
+  <header class="top">
+    <span class="brand"><i></i>Stride</span>
+    <label class="range"><span hidden>Date range</span><select id="range" aria-label="Date range"></select></label>
+  </header>
+  <nav class="sections" aria-label="Sections">
+    <a href="#summary">Summary</a><a href="#walking">Walking</a><a href="#longest">Longest walks</a>
+    <a href="#weather">Weather</a><a href="#pipeline">Pipeline health</a>
+  </nav>
+
+  <section id="summary">
+    <div class="title">Summary</div><div class="sub">The whole picture, in plain English</div>
+    <div class="eyebrow" id="period"></div>
+    <p class="lede" id="lede"></p>
+    <div class="note">Sample data, generated synthetically</div>
+    <div class="kpis" id="kpis-summary"></div>
+    <div class="chart-title">Miles per week</div>
+    <div class="chart" id="chart-weekly"></div>
+  </section>
+
+  <section id="walking">
+    <div class="title">Walking</div><div class="sub">Distance, time and steps, day by day</div>
+    <div class="kpis" id="kpis-walking" style="margin-top:0"></div>
+    <div class="chart-title">Daily steps · 7-day average</div>
+    <div class="chart" id="chart-steps"></div>
+    <div class="chart-title">Miles by day of week</div>
+    <div id="dow"></div>
+    <details><summary>View daily data as a table</summary><div class="table-wrap" id="table"></div></details>
+  </section>
+
+  <section id="longest">
+    <div class="title">Longest walks</div><div class="sub">The ten longest walks in the selected period</div>
+    <div class="eyebrow">Longest in this period</div>
+    <p class="lede" id="longest-lede"></p>
+    <div id="longest-bars"></div>
+  </section>
+
+  <section id="weather">
+    <div class="title">Walking vs. weather</div><div class="sub">How often, and how far, by sky and temperature</div>
+    <div class="cols">
+      <div><div class="chart-title">Share of days with a walk, by condition</div><div id="by-condition"></div></div>
+      <div><div class="chart-title">Average miles per day, by daily high</div><div id="by-temp"></div></div>
+    </div>
+    <p class="note" style="margin-top:18px">Groups with fewer than 5 days in the selected period are left out.</p>
+  </section>
+
+  <section id="pipeline">
+    <div class="title">Pipeline health</div><div class="sub">What the last run checked, and what it set aside</div>
+    <div class="health" id="health"></div>
+    <div class="cols wide-left">
+      <div id="checks"></div>
+      <div><div class="layer">Quarantined rows</div>
+        <p class="note" style="margin:0 0 6px">Invalid rows are set aside with a reason instead of being silently dropped.</p>
+        <div id="quarantine"></div></div>
+    </div>
+  </section>
+
+  <footer>
+    <span><b>Stride</b> · a wellness data pipeline</span>
+    <span id="generated"></span>
+  </footer>
+</main>
+
+<script>
+"use strict";
+const D = /*__DATA__*/null;
+const REPO = "https://github.com/noorissa25/wellness-data-pipeline";
+const MI = 0.621371, DAY = 86400000;
+const RANGES = [["Last 30 days", 30], ["Last 90 days", 90], ["Last 12 months", 365], ["All time", null]];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const CONDITIONS = ["clear", "partly_cloudy", "overcast", "rain", "snow"];
+const BANDS = [["Below 32 °F", -Infinity, 32], ["32–50 °F", 32, 50], ["50–68 °F", 50, 68],
+               ["68–86 °F", 68, 86], ["86 °F and up", 86, Infinity]];
+
+const toF = c => c == null ? null : c * 9 / 5 + 32;
+const parse = s => Date.parse(s + "T00:00:00Z");
+const days = D.daily.map(r => ({ t: parse(r[0]), steps: r[1], walks: r[2], mi: r[3] * MI,
+  minutes: r[4], longest: r[5] * MI, tf: toF(r[6]), cond: r[7] }));
+const walks = D.walks.map(r => ({ t: parse(r[0]), mi: r[1] * MI, minutes: r[2],
+  pace: r[3] * 1.609344, cond: r[4], tf: toF(r[5]) }));
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = (v, d = 0) => v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = v => Math.round(v * 100) + "%";
+const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+const mean = (a, f) => a.length ? sum(a, f) / a.length : NaN;
+const fmtDay = t => { const d = new Date(t); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
+const fmtShort = t => { const d = new Date(t); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
+const fmtDur = m => { const h = Math.floor(Math.round(m) / 60), r = Math.round(m) % 60;
+  return h ? `${h} h ${String(r).padStart(2, "0")} min` : `${r} min`; };
+const condLabel = c => c ? c.replace("_", " ") : "no weather";
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function delta(now, before, label) {
+  if (before == null || !before) return "";
+  const ch = (now - before) / before;
+  const cls = Math.abs(ch) < 0.005 ? "flat" : ch > 0 ? "up" : "down";
+  return `<span class="delta ${cls}">${{up: "▲", down: "▼", flat: "●"}[cls]} ${pct(Math.abs(ch))}</span> vs ${esc(label)}`;
+}
+const kpi = (label, value, unit, caption) => `<div class="kpi"><div class="eyebrow">${esc(label)}</div>
+  <div class="num">${esc(value)}${unit ? `<span class="unit">${esc(unit)}</span>` : ""}</div>
+  <div class="cap">${caption}</div></div>`;
+
+function barList(rows, compact) {
+  const top = Math.max(0, ...rows.map(r => r.value)) || 1;
+  return `<div class="bars${compact ? " compact" : ""}">` + rows.map(r => `<div class="bar-row">
+    <div class="label">${esc(r.label)}${r.sub ? `<small>${esc(r.sub)}</small>` : ""}</div>
+    <div class="track"><div class="fill" style="width:${Math.max(2, r.value / top * 100).toFixed(1)}%"></div></div>
+    <div class="val">${esc(r.shown)}</div></div>`).join("") + "</div>";
+}
+
+// ---- charts -------------------------------------------------------------------------------
+function niceMax(v) {
+  if (!(v > 0)) return 1;
+  const step = Math.pow(10, Math.floor(Math.log10(v / 4)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (v / (m * step) <= 4) return 4 * m * step;
+  return v;
+}
+function monotonePath(xs, ys) {
+  const n = xs.length;
+  if (n === 1) return `M${xs[0]},${ys[0]}`;
+  const m = [], t = new Array(n);
+  for (let i = 0; i < n - 1; i++) m.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+  t[0] = m[0]; t[n - 1] = m[n - 2];
+  for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = t[i + 1] = 0; continue; }
+    const a = t[i] / m[i], b = t[i + 1] / m[i], s = a * a + b * b;
+    if (s > 9) { const k = 3 / Math.sqrt(s); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  let d = `M${xs[0]},${ys[0]}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = (xs[i + 1] - xs[i]) / 3;
+    d += `C${xs[i] + h},${ys[i] + t[i] * h} ${xs[i + 1] - h},${ys[i + 1] - t[i + 1] * h} ${xs[i + 1]},${ys[i + 1]}`;
+  }
+  return d;
+}
+function xTicks(t0, t1) {
+  const span = (t1 - t0) / DAY, ticks = [];
+  if (span <= 120) {
+    const step = span <= 45 ? 7 : 14;
+    let t = t0 + ((8 - new Date(t0).getUTCDay()) % 7) * DAY;   // first Monday
+    for (; t <= t1; t += step * DAY) ticks.push([t, fmtShort(t)]);
+  } else {
+    const step = span <= 400 ? 1 : 3, d = new Date(t0);
+    let y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1;
+    for (;;) {
+      if (mo > 11) { y += Math.floor(mo / 12); mo %= 12; }
+      const t = Date.UTC(y, mo, 1);
+      if (t > t1) break;
+      ticks.push([t, MONTHS[mo]]); mo += step;
+    }
+  }
+  return ticks;
+}
+let chartId = 0;
+function areaChart(el, pts, tipRows) {
+  const W = el.clientWidth || 600, H = el.clientHeight || 230;
+  const L = 44, R = 10, T = 10, B = 26, iw = W - L - R, ih = H - T - B;
+  if (!pts.length) { el.innerHTML = '<p class="note">No data in this period.</p>'; return; }
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t, ymax = niceMax(Math.max(...pts.map(p => p.v)));
+  const X = t => L + (t1 === t0 ? iw / 2 : (t - t0) / (t1 - t0) * iw), Y = v => T + ih - v / ymax * ih;
+  const xs = pts.map(p => X(p.t)), ys = pts.map(p => Y(p.v)), id = "g" + (++chartId);
+  const line = monotonePath(xs, ys);
+  let grid = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = ymax * i / 4, y = Y(v);
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#f1f1ef"/>` +
+            `<text x="${L - 8}" y="${y + 4}" text-anchor="end">${num(v)}</text>`;
+  }
+  const xt = xTicks(t0, t1).filter(([t]) => X(t) > L + 12 && X(t) < W - R - 12)
+    .map(([t, s]) => `<text x="${X(t)}" y="${H - 6}" text-anchor="middle">${s}</text>`).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Chart">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d3cf"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${xt}
+    <path d="${line}L${xs[xs.length - 1]},${T + ih}L${xs[0]},${T + ih}Z" fill="url(#${id})"/>
+    <path d="${line}" fill="none" stroke="#d63a2f" stroke-width="2"/>
+    <line class="rule" y1="${T}" y2="${T + ih}" stroke="#d9d9d6" opacity="0"/>
+    <circle class="dot" r="5" fill="#d63a2f" stroke="#fff" stroke-width="2" opacity="0"/>
+    <rect x="${L}" y="0" width="${iw}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = el.querySelector("svg"), rule = svg.querySelector(".rule"), dot = svg.querySelector(".dot");
+  const tip = el.querySelector(".tip");
+  const show = ev => {
+    const box = svg.getBoundingClientRect(), x = (ev.clientX - box.left) * W / box.width;
+    let i = 0;
+    for (let k = 1; k < xs.length; k++) if (Math.abs(xs[k] - x) < Math.abs(xs[i] - x)) i = k;
+    rule.setAttribute("x1", xs[i]); rule.setAttribute("x2", xs[i]); rule.setAttribute("opacity", 1);
+    dot.setAttribute("cx", xs[i]); dot.setAttribute("cy", ys[i]); dot.setAttribute("opacity", 1);
+    tip.innerHTML = tipRows(pts[i]).map(([k, v]) => `<span>${esc(k)}</span> <b>${esc(v)}</b>`).join("<br>");
+    const px = xs[i] * box.width / W, left = Math.min(Math.max(px + 12, 0), box.width - tip.offsetWidth);
+    tip.style.left = (px + 12 + tip.offsetWidth > box.width ? px - tip.offsetWidth - 12 : left) + "px";
+    tip.style.top = "4px"; tip.style.opacity = 1;
+  };
+  const hide = () => { rule.setAttribute("opacity", 0); dot.setAttribute("opacity", 0); tip.style.opacity = 0; };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("pointerleave", hide);
+}
+
+// ---- render -------------------------------------------------------------------------------
+const last = days[days.length - 1].t;
+const passed = D.checks.filter(c => c.passed).length;
+
+function render(rangeIdx) {
+  const [label, n] = RANGES[rangeIdx];
+  const start = n ? last - (n - 1) * DAY : days[0].t;
+  const cur = days.filter(d => d.t >= start);
+  const priorAll = n ? days.filter(d => d.t < start && d.t >= start - n * DAY) : [];
+  const prior = priorAll.length === n ? priorAll : null;
+  const vs = n ? `prior ${n} days` : "";
+  const miles = sum(cur, d => d.mi), walkCount = sum(cur, d => d.walks), weeks = Math.max(cur.length / 7, 1);
+  const walkedShare = cur.filter(d => d.walks > 0).length / cur.length;
+  const best = cur.reduce((b, d) => d.longest > (b ? b.longest : 0) ? d : b, null);
+
+  // summary
+  $("period").textContent = `${label} · ${fmtDay(cur[0].t)} to ${fmtDay(cur[cur.length - 1].t)}`;
+  const wet = cur.filter(d => d.cond === "rain" || d.cond === "snow");
+  const dry = cur.filter(d => d.cond && d.cond !== "rain" && d.cond !== "snow");
+  const s = [`${n ? "Over the " + label.toLowerCase() : "Across the full history"}, ${num(walkCount)} walks covered ${num(miles)} miles, an average of ${num(miles / weeks)} miles a week.`,
+    `Walks happened on ${pct(walkedShare)} of days` + (best ? `, and the longest reached ${num(best.longest, 1)} miles on ${fmtDay(best.t)}.` : ".")];
+  if (wet.length && dry.length) s.push(`Weather has a clear effect: ${pct(dry.filter(d => d.walks).length / dry.length)} of dry days included a walk, compared with ${pct(wet.filter(d => d.walks).length / wet.length)} of rainy or snowy days.`);
+  s.push(passed === D.checks.length ? `All ${D.checks.length} data-quality checks passed on the latest run.`
+                                    : `${D.checks.length - passed} data-quality checks need attention (see Pipeline health).`);
+  $("lede").textContent = s.join(" ");
+  $("kpis-summary").innerHTML =
+    kpi("Distance walked", num(miles), "mi", delta(miles, prior && sum(prior, d => d.mi), vs) || "total over the period") +
+    kpi("Walks", num(walkCount), "", delta(walkCount, prior && sum(prior, d => d.walks), vs) || "sessions recorded") +
+    kpi("Avg daily steps", num(mean(cur, d => d.steps)), "", delta(mean(cur, d => d.steps), prior && mean(prior, d => d.steps), vs) || "across all devices") +
+    kpi("Days with a walk", String(Math.round(walkedShare * 100)), "%", `${cur.filter(d => d.walks > 0).length} of ${cur.length} days`);
+
+  const weekly = new Map();
+  for (const d of cur) {
+    const wk = d.t - ((new Date(d.t).getUTCDay() + 6) % 7) * DAY;
+    const w = weekly.get(wk) || { t: wk, v: 0, walks: 0 };
+    w.v += d.mi; w.walks += d.walks; weekly.set(wk, w);
+  }
+  areaChart($("chart-weekly"), [...weekly.values()],
+    p => [["Week of", fmtDay(p.t)], ["Miles", num(p.v, 1)], ["Walks", num(p.walks)]]);
+
+  // walking
+  const hours = sum(cur, d => d.minutes) / 60, tenK = cur.filter(d => d.steps >= 10000).length;
+  $("kpis-walking").innerHTML =
+    kpi("Time on foot", num(hours), "hrs", `about ${num(hours / weeks, 1)} hours a week`) +
+    kpi("Avg walk", num(walkCount ? miles / walkCount : 0, 1), "mi", "per session") +
+    kpi("Avg pace", num(miles ? sum(cur, d => d.minutes) / miles : 0, 1), "min/mi", "minutes per mile") +
+    kpi("10k-step days", num(tenK), "", `${pct(tenK / cur.length)} of days`);
+  const steps = cur.map((d, i) => {
+    const win = cur.slice(Math.max(0, i - 6), i + 1);
+    return { t: d.t, v: mean(win, x => x.steps), steps: d.steps };
+  });
+  areaChart($("chart-steps"), steps,
+    p => [["Date", fmtDay(p.t)], ["Steps", num(p.steps)], ["7-day avg", num(p.v)]]);
+  $("dow").innerHTML = barList(WEEKDAYS.map((name, i) => {
+    const ds = cur.filter(d => (new Date(d.t).getUTCDay() + 6) % 7 === i);
+    const avg = mean(ds, d => d.mi);
+    return { label: name, sub: `walks on ${pct(ds.filter(d => d.walks).length / (ds.length || 1))} of ${name}s`,
+             value: avg || 0, shown: `${num(avg || 0, 1)} mi` };
+  }));
+  $("table").innerHTML = `<table><thead><tr><th>Date</th><th>Steps</th><th>Walks</th><th>Miles</th>
+    <th>Minutes</th><th>Longest (mi)</th><th>Weather</th><th>High °F</th></tr></thead><tbody>` +
+    cur.slice().reverse().map(d => `<tr><td>${fmtDay(d.t)}</td><td>${num(d.steps)}</td><td>${d.walks}</td>
+      <td>${num(d.mi, 1)}</td><td>${num(d.minutes)}</td><td>${num(d.longest, 1)}</td>
+      <td>${esc(condLabel(d.cond))}</td><td>${d.tf == null ? "" : num(d.tf)}</td></tr>`).join("") + "</tbody></table>";
+
+  // longest walks
+  const top = walks.filter(w => w.t >= start).slice(0, 10);
+  if (top.length) {
+    const w = top[0];
+    $("longest-lede").textContent = `${num(w.mi, 1)} miles on ${fmtDay(w.t)}, in ${fmtDur(w.minutes)} (${condLabel(w.cond)}${w.tf == null ? "" : `, high of ${num(w.tf)} °F`}).`;
+    $("longest-bars").innerHTML = barList(top.map(w => ({ label: fmtDay(w.t),
+      sub: `${fmtDur(w.minutes)} · ${num(w.pace, 1)} min/mi · ${condLabel(w.cond)}${w.tf == null ? "" : `, ${num(w.tf)} °F`}`,
+      value: w.mi, shown: `${num(w.mi, 1)} mi` })));
+  } else {
+    $("longest-lede").textContent = "No walks in this period.";
+    $("longest-bars").innerHTML = "";
+  }
+
+  // weather
+  const withWeather = cur.filter(d => d.cond);
+  const group = (keyOf, keys, labelOf) => keys.map(k => {
+    const ds = withWeather.filter(d => keyOf(d) === k);
+    return { label: labelOf(k), days: ds.length, share: ds.filter(d => d.walks).length / (ds.length || 1),
+             mi: mean(ds, d => d.mi) };
+  }).filter(g => g.days >= 5);
+  $("by-condition").innerHTML = barList(group(d => d.cond, CONDITIONS, c => cap(condLabel(c)))
+    .map(g => ({ label: g.label, sub: `${g.days} days`, value: g.share, shown: pct(g.share) })));
+  const band = d => BANDS.find(([, lo, hi]) => d.tf >= lo && d.tf < hi)[0];
+  $("by-temp").innerHTML = barList(group(band, BANDS.map(b => b[0]), b => b)
+    .map(g => ({ label: g.label, sub: `${g.days} days`, value: g.mi, shown: `${num(g.mi, 1)} mi` })));
+}
+
+function renderPipeline() {
+  const total = D.checks.length, score = total ? Math.round(100 * passed / total) : 0;
+  const blocking = D.checks.filter(c => c.severity === "error" && !c.passed).length;
+  const color = blocking ? "#d63a2f" : "#1f9d55";
+  const headline = score === 100 ? "All checks passed on the latest run."
+    : blocking ? "Blocking checks failed, so reporting tables were not updated."
+    : "All blocking checks passed, with warnings to review.";
+  $("health").innerHTML = `<div class="ring" role="img" aria-label="Score ${score} of 100"
+      style="background: conic-gradient(${color} ${score * 3.6}deg, #ececec 0)"><span>${score}</span></div>
+    <div><div class="eyebrow" style="margin:0 0 4px">Quality score</div><h3>${headline}</h3>
+    <div class="note">${passed} of ${total} checks passed${D.lastRun ? ` · last run ${fmtDay(parse(D.lastRun))}` : ""}
+      · ${num(D.files)} files and ${num(D.rawRows)} raw rows ingested</div></div>`;
+  const layers = [["silver", "Silver layer · cleaned data"], ["gold", "Gold layer · reporting tables"]];
+  $("checks").innerHTML = layers.map(([key, title]) => `<div class="layer">${title}</div><div class="checks">` +
+    D.checks.filter(c => c.layer === key).map(c => {
+      const st = c.passed ? "pass" : c.severity === "error" ? "fail" : "warn";
+      return `<div class="check"><div><span class="pill ${st}">${{pass: "Passed", warn: "Warning", fail: "Failed"}[st]}</span></div>
+        <div><div class="name">${esc(c.title)}</div><div class="desc">${esc(c.desc)}</div>
+        <div class="sev">${c.severity === "error" ? "Blocks the run" : "Warning only"}</div></div>
+        <div class="n">${c.passed ? "—" : num(c.failed)}</div></div>`;
+    }).join("") + "</div>").join("");
+  $("quarantine").innerHTML = D.quarantine.length
+    ? barList(D.quarantine.map(q => ({ label: q.reason, value: q.n, shown: String(q.n) })), true)
+    : '<p class="note">Nothing quarantined.</p>';
+  $("generated").innerHTML = `Updated ${fmtDay(parse(D.generated))} · sample data · <a href="${REPO}">Source on GitHub</a>`;
+}
+
+// ---- wiring -------------------------------------------------------------------------------
+const select = $("range");
+select.innerHTML = RANGES.map(([l], i) => `<option value="${i}"${i === 1 ? " selected" : ""}>${l}</option>`).join("");
+select.addEventListener("change", () => render(+select.value));
+render(1);
+renderPipeline();
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => render(+select.value), 150); });
+
+const links = [...document.querySelectorAll("nav.sections a")];
+const observer = new IntersectionObserver(entries => {
+  for (const e of entries) if (e.isIntersecting) {
+    links.forEach(a => a.classList.toggle("active", a.hash === "#" + e.target.id));
+    const active = links.find(a => a.classList.contains("active")), nav = active && active.parentElement;
+    if (nav) nav.scrollTo({ left: active.offsetLeft - 16, behavior: "smooth" });  // sideways only
+  }
+}, { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("section").forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
